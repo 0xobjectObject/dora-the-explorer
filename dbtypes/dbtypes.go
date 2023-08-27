@@ -59,6 +59,23 @@ type OrphanedBlock struct {
 	Root   []byte `db:"root"`
 	Header string `db:"header"`
 	Block  string `db:"block"`
+	ForkId uint64 `db:"forkid"`
+}
+
+type Fork struct {
+	ForkId     uint64 `db:"forkid"`
+	ParentFork uint64 `db:"parent_fork"`
+	OriginSlot uint64 `db:"origin_slot"`
+	OriginRoot []byte `db:"origin_root"`
+	HeadSlot   uint64 `db:"head_slot"`
+	HeadRoot   []byte `db:"head_root"`
+	BlockCount uint32 `db:"block_count"`
+}
+
+type OrphanedBlockRef struct {
+	Root       []byte `db:"root"`
+	ParentRoot []byte `db:"parent_root"`
+	ForkId     uint64 `db:"forkid"`
 }
 
 type SlotAssignment struct {

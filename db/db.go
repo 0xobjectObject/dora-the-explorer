@@ -350,13 +350,13 @@ func InsertOrphanedBlock(block *dbtypes.OrphanedBlock, tx *sqlx.Tx) error {
 	_, err := tx.Exec(EngineQuery(map[dbtypes.DBEngineType]string{
 		dbtypes.DBEnginePgsql: `
 			INSERT INTO orphaned_blocks (
-				root, header, block
-			) VALUES ($1, $2, $3)
+				root, header, block, forkid
+			) VALUES ($1, $2, $3, $4)
 			ON CONFLICT (root) DO NOTHING`,
 		dbtypes.DBEngineSqlite: `
 			INSERT OR IGNORE orphaned_blocks (
-				root, header, block
-			) VALUES ($1, $2, $3)`,
+				root, header, block, forkid
+			) VALUES ($1, $2, $3, $4)`,
 	}),
 		block.Root, block.Header, block.Block)
 	if err != nil {
@@ -368,7 +368,7 @@ func InsertOrphanedBlock(block *dbtypes.OrphanedBlock, tx *sqlx.Tx) error {
 func GetOrphanedBlock(root []byte) *dbtypes.OrphanedBlock {
 	block := dbtypes.OrphanedBlock{}
 	err := ReaderDb.Get(&block, `
-	SELECT root, header, block
+	SELECT root, header, block, forkid
 	FROM orphaned_blocks
 	WHERE root = $1
 	`, root)
@@ -376,6 +376,34 @@ func GetOrphanedBlock(root []byte) *dbtypes.OrphanedBlock {
 		return nil
 	}
 	return &block
+}
+
+func InsertFork(fork *dbtypes.Fork, tx *sqlx.Tx) error {
+	if fork.ForkId == 0 {
+		res, err := tx.Exec(`
+				INSERT INTO forks (
+					parent_fork, origin_slot, origin_root, head_slot, head_root, block_count 
+				) VALUES ($1, $2, $3, $4, $5, $6)`,
+			fork.ParentFork, fork.OriginSlot, fork.OriginRoot, fork.HeadSlot, fork.HeadRoot, fork.BlockCount)
+		if err != nil {
+			return err
+		}
+		forkId, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		fork.ForkId = uint64(forkId)
+	} else {
+		_, err := tx.Exec(`
+				UPDATE forks 
+				SET head_slot = $1, head_root = $2, block_count = $3
+				WHERE forkid = $4`,
+			fork.HeadSlot, fork.HeadRoot, fork.BlockCount, fork.ForkId)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func GetEpochs(firstEpoch uint64, limit uint32) []*dbtypes.Epoch {

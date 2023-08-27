@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pk910/light-beaconchain-explorer/db"
 	"github.com/pk910/light-beaconchain-explorer/rpc"
 	"github.com/pk910/light-beaconchain-explorer/rpctypes"
 	"github.com/pk910/light-beaconchain-explorer/utils"
@@ -247,11 +248,6 @@ func (client *IndexerClient) prefillCache(finalizedSlot uint64, latestHeader *rp
 	// walk backwards and load all blocks until we reach a finalized epoch
 	parentRoot := []byte(currentBlock.header.Message.ParentRoot)
 	for {
-		finalizedCheckpoint := (client.indexerCache.finalizedEpoch + 1) * int64(utils.Config.Chain.Config.SlotsPerEpoch)
-		if finalizedCheckpoint > int64(finalizedSlot) {
-			finalizedSlot = uint64(finalizedCheckpoint)
-		}
-
 		var parentHead *rpctypes.SignedBeaconBlockHeader
 		parentBlock := client.indexerCache.getCachedBlock(parentRoot)
 		if parentBlock != nil {
@@ -284,6 +280,15 @@ func (client *IndexerClient) prefillCache(finalizedSlot uint64, latestHeader *rp
 		if parentSlot <= finalizedSlot {
 			logger.WithField("client", client.clientName).Debugf("prefill cache: reached finalized slot %v:%v [0x%x]", utils.EpochOfSlot(parentSlot), parentSlot, parentRoot)
 			break
+		}
+		if client.indexerCache.finalizedEpoch >= 0 && parentSlot <= uint64((client.indexerCache.finalizedEpoch+1)*int64(utils.Config.Chain.Config.SlotsPerEpoch)) {
+			// finalized from other clients point of view, but we're probably importing a orphaned chain here
+			// check if we already know about this orphaned block
+			parentDbBlock := db.GetBlockOrphanedRefs([][]byte{parentRoot})
+			if len(parentDbBlock) > 0 {
+				logger.WithField("client", client.clientName).Debugf("prefill cache: reached known orphaned slot %v:%v [0x%x]", utils.EpochOfSlot(parentSlot), parentSlot, parentRoot)
+				break
+			}
 		}
 		if parentSlot == 0 {
 			logger.WithField("client", client.clientName).Debugf("prefill cache: reached gensis slot [0x%x]", parentRoot)
