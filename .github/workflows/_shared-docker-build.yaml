@@ -1,0 +1,62 @@
+
+name: Reusable build workflow
+on:
+  workflow_call:
+     inputs:
+        release:
+          description: 'Release version tag for this build'
+          default: ''
+          required: false
+          type: string
+
+# shared build jobs
+jobs:
+  build_amd64_docker:
+    name: Build AMD64 Docker image
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    # build image
+    - name: Build Docker image
+      run: |
+        docker build . --build-arg release=${{ inputs.release }} --file Dockerfile --tag pk910/light-beaconchain-explorer:${{ inputs.release }}-amd64
+
+    # upload artifacts
+    - name: Save Docker image
+      run: docker save --output docker-amd64.tar pk910/light-beaconchain-explorer:${{ inputs.release }}-amd64
+    - name: "Upload artifact: docker-amd64.tar"
+      uses: actions/upload-artifact@v3
+      with:
+        path: ./docker-amd64.tar
+        name: docker-amd64.tar
+
+  build_arm64_docker:
+    name: Build ARM64 Docker image
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Docker on macOS
+      uses: douglascamata/setup-docker-macos-action@v1-alpha
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    # build image
+    - name: Build Docker image
+      run: |
+        docker build . --build-arg release=${{ inputs.release }} --file Dockerfile --tag pk910/light-beaconchain-explorer:${{ inputs.release }}-arm64
+
+    # upload artifacts
+    - name: Save Docker image
+      run: docker save --output docker-arm64.tar pk910/light-beaconchain-explorer:${{ inputs.release }}-arm64
+    - name: "Upload artifact: docker-arm64.tar"
+      uses: actions/upload-artifact@v3
+      with:
+        path: ./docker-arm64.tar
+        name: docker-arm64.tar

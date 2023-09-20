@@ -11,7 +11,7 @@ on:
 jobs:
   build_binaries:
     name: "Build binaries"
-    uses: ./.github/workflows/_shared-build.yaml
+    uses: ./.github/workflows/_shared-binary-build.yaml
     with:
       release: "v${{ inputs.version }}"
 

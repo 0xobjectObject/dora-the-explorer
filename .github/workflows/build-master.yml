@@ -15,13 +15,19 @@ jobs:
 
   build_binaries:
     name: "Build binaries"
-    uses: ./.github/workflows/_shared-build.yaml
+    uses: ./.github/workflows/_shared-binary-build.yaml
+    with:
+      release: "snapshot"
+
+  build_docker:
+    name: "Build docker"
+    uses: ./.github/workflows/_shared-docker-build.yaml
     with:
       release: "snapshot"
 
   create_snapshot_release:
     name: Create snapshot release
-    needs: [build_binaries]
+    needs: [build_binaries, build_docker]
     runs-on: ubuntu-latest
     steps:
     # download build artifacts
@@ -128,8 +134,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
     
-  build_docker:
-    name: Build Docker Image
+  publish_docker:
+    name: Publish Docker Image
+    needs: [build_binaries, build_docker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
